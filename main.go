@@ -1,25 +1,48 @@
 package main
 
 import (
-  "fmt"
+	"encoding/json"
+	"fmt"
+	"kRPC/codec"
+	"kRPC/server"
+	"log"
+	"net"
+	"time"
 )
 
-//TIP To run your code, right-click the code and select <b>Run</b>. Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.
-
-func main() {
-  //TIP Press <shortcut actionId="ShowIntentionActions"/> when your caret is at the underlined or highlighted text
-  // to see how GoLand suggests fixing it.
-  s := "gopher"
-  fmt.Println("Hello and welcome, %s!", s)
-
-  for i := 1; i <= 5; i++ {
-	//TIP You can try debugging your code. We have set one <icon src="AllIcons.Debugger.Db_set_breakpoint"/> breakpoint
-	// for you, but you can always add more by pressing <shortcut actionId="ToggleLineBreakpoint"/>. To start your debugging session, 
-	// right-click your code in the editor and select the <b>Debug</b> option. 
-	fmt.Println("i =", 100/i)
-  }
+func startServer(addr chan string) {
+	// pick a free port
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		log.Fatal("network error:", err)
+	}
+	log.Println("start rpc server on", l.Addr())
+	addr <- l.Addr().String()
+	server.Accept(l)
 }
 
-//TIP See GoLand help at <a href="https://www.jetbrains.com/help/go/">jetbrains.com/help/go/</a>.
-// Also, you can try interactive lessons for GoLand by selecting 'Help | Learn IDE Features' from the main menu.
+func main() {
+	addr := make(chan string)
+	go startServer(addr)
+
+	// in fact, following code is like a simple geerpc client
+	conn, _ := net.Dial("tcp", <-addr)
+	defer func() { _ = conn.Close() }()
+
+	time.Sleep(time.Second)
+	// send options
+	_ = json.NewEncoder(conn).Encode(server.DefaultOption)
+	cc := codec.NewGobCodec(conn)
+	// send request & receive response
+	for i := 0; i < 5; i++ {
+		h := &codec.Header{
+			ServiceMethod: "Foo.Sum",
+			Seq:           uint64(i),
+		}
+		_ = cc.Write(h, fmt.Sprintf("geerpc req %d", h.Seq))
+		_ = cc.ReadHeader(h)
+		var reply string
+		_ = cc.ReadBody(&reply)
+		log.Println("reply:", reply)
+	}
+}
