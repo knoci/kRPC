@@ -9,13 +9,19 @@ import (
 	"kRPC/service"
 	"log"
 	"net"
+	"net/http"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 )
 
-const MagicNumber = 0x3bef5c
+const (
+	connected        = "200 Connected to Gee RPC" // HTTP 连接成功的响应消息
+	defaultRPCPath   = "/_kprc_"                  // 默认的 RPC 请求路径
+	defaultDebugPath = "/debug/krpc"              // 默认的调试路径
+	MagicNumber      = 0x3bef5c
+)
 
 type Option struct {
 	MagicNumber    int // MagicNumber 用于标识这是一个RPC请求
@@ -224,4 +230,40 @@ func (server *Server) findService(serviceMethod string) (svc *service.Service, m
 		err = errors.New("rpc server: can't find method " + methodName)
 	}
 	return
+}
+
+// ServeHTTP 实现了 http.Handler 接口，用于处理 HTTP 请求。
+// 它只支持 HTTP 的 CONNECT 方法，用于建立 RPC 连接。
+func (server *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "CONNECT" {
+		// 如果请求方法不是 CONNECT，返回 405 Method Not Allowed
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = io.WriteString(w, "405 must CONNECT\n")
+		return
+	}
+
+	// 使用 Hijacker 接管连接
+	conn, _, err := w.(http.Hijacker).Hijack()
+	if err != nil {
+		log.Print("rpc hijacking ", req.RemoteAddr, ": ", err.Error())
+		return
+	}
+
+	// 向客户端发送连接成功的 HTTP 响应
+	_, _ = io.WriteString(conn, "HTTP/1.0 "+connected+"\n\n")
+
+	// 调用 ServeConn 方法处理 RPC 请求
+	server.ServeConn(conn)
+}
+
+// HandleHTTP 注册一个 HTTP 处理器，用于处理默认路径上的 RPC 请求。
+// 它将 RPC 请求转发到 `ServeHTTP` 方法。
+func (server *Server) HandleHTTP() {
+	http.Handle(defaultRPCPath, server) // 注册默认的 RPC 路径
+}
+
+// HandleHTTP 是一个便捷方法，用于默认服务器注册 HTTP 处理器。
+func HandleHTTP() {
+	DefaultServer.HandleHTTP() // 调用默认服务器的 HandleHTTP 方法
 }

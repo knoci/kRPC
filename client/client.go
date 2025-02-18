@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -10,8 +11,17 @@ import (
 	"kRPC/server"
 	"log"
 	"net"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
+)
+
+const (
+	connected        = "200 Connected to Gee RPC" // HTTP 连接成功的响应消息
+	defaultRPCPath   = "/_kprc_"                  // 默认的 RPC 请求路径
+	defaultDebugPath = "/debug/krpc"              // 默认的调试路径
+	MagicNumber      = 0x3bef5c
 )
 
 // Call 代表一个活跃的RPC调用
@@ -286,5 +296,48 @@ func (client *Client) Call(ctx context.Context, serviceMethod string, args, repl
 		return errors.New("rpc client: call failed: " + ctx.Err().Error())
 	case call := <-call.Done: // 等待调用完成
 		return call.Error
+	}
+}
+
+// NewHTTPClient 通过 HTTP 协议创建一个新的 RPC 客户端实例。
+func NewHTTPClient(conn net.Conn, opt *server.Option) (*Client, error) {
+	// 向服务器发送 CONNECT 请求，尝试建立 RPC 连接
+	_, _ = io.WriteString(conn, fmt.Sprintf("CONNECT %s HTTP/1.0\n\n", defaultRPCPath))
+
+	// 读取 HTTP 响应，确保连接成功
+	resp, err := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: "CONNECT"})
+	if err == nil && resp.Status == connected {
+		return NewClient(conn, opt) // 如果连接成功，创建 RPC 客户端
+	}
+	if err == nil {
+		err = errors.New("unexpected HTTP response: " + resp.Status) // 如果响应状态不匹配，返回错误
+	}
+	return nil, err
+}
+
+// DialHTTP 连接到一个监听在默认 HTTP RPC 路径上的 HTTP RPC 服务器。
+func DialHTTP(network, address string, opts ...*server.Option) (*Client, error) {
+	return dialTimeout(NewHTTPClient, network, address, opts...) // 使用 NewHTTPClient 创建客户端
+}
+
+// XDial 根据 rpcAddr 的协议部分调用不同的函数来连接到 RPC 服务器。
+// rpcAddr 是一个通用格式（protocol@addr），用于表示 RPC 服务器的地址。
+// 示例：
+//
+//	http@10.0.0.1:7001
+//	tcp@10.0.0.1:9999
+//	unix@/tmp/geerpc.sock
+func XDial(rpcAddr string, opts ...*server.Option) (*Client, error) {
+	parts := strings.Split(rpcAddr, "@")
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("rpc client err: wrong format '%s', expect protocol@addr", rpcAddr)
+	}
+	protocol, addr := parts[0], parts[1] // 分离协议和地址
+	switch protocol {
+	case "http":
+		return DialHTTP("tcp", addr, opts...) // 对于 HTTP 协议，调用 DialHTTP
+	default:
+		// 其他协议（如 tcp、unix 等）
+		return Dial(protocol, addr, opts...) // 调用 Dial
 	}
 }
