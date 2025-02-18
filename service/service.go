@@ -91,7 +91,7 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 }
 
 // call 调用一个注册的方法，并返回错误（如果有）。
-func (s *Service) call(m *MethodType, argv, replyv reflect.Value) error {
+func (s *Service) Call(m *MethodType, argv, replyv reflect.Value) error {
 	atomic.AddUint64(&m.numCalls, 1) // 增加方法调用次数
 	returnValues := m.method.Func.Call([]reflect.Value{s.Rcvr, argv, replyv})
 	if errInter := returnValues[0].Interface(); errInter != nil {
