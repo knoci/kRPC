@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"html/template"
 	"kRPC/server"
-	"log"
+	"kRPC/service"
 	"net/http"
 )
 
@@ -41,24 +41,24 @@ var debug = template.Must(template.New("RPC debug").Parse(debugText))
 
 // debugHTTP 是一个 HTTP 处理器，用于展示 RPC 服务的调试信息。
 type debugHTTP struct {
-	*sever.Server // 包含 Server 的指针
+	*server.Server // 包含 Server 的指针
 }
 
 // debugService 是一个结构体，用于存储服务的调试信息。
 type debugService struct {
-	Name   string                      // 服务名称
-	Method map[string]*krpc.MethodType // 方法及其调用统计
+	Name   string                         // 服务名称
+	Method map[string]*service.MethodType // 方法及其调用统计
 }
 
 // ServeHTTP 是 debugHTTP 的 HTTP 处理方法，用于处理调试请求。
 func (server debugHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// 构建一个排序后的服务数据列表
 	var services []debugService
-	server.serviceMap.Range(func(namei, svci interface{}) bool {
-		svc := svci.(*service)
+	server.ServiceMap.Range(func(namei, svci interface{}) bool {
+		svc := svci.(*service.Service)
 		services = append(services, debugService{
 			Name:   namei.(string),
-			Method: svc.method,
+			Method: svc.Method,
 		})
 		return true
 	})
@@ -67,11 +67,4 @@ func (server debugHTTP) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		_, _ = fmt.Fprintln(w, "rpc: error executing template:", err.Error())
 	}
-}
-
-// HandleHTTP 注册 HTTP 处理器，用于处理 RPC 请求和调试请求。
-func (server *server.Server) HandleHTTP() {
-	http.Handle(defaultRPCPath, server)              // 注册 RPC 请求处理器
-	http.Handle(defaultDebugPath, debugHTTP{server}) // 注册调试请求处理器
-	log.Println("rpc server debug path:", defaultDebugPath)
 }

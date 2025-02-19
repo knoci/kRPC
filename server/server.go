@@ -46,7 +46,7 @@ type request struct {
 
 // 一个简单的RPC服务器结构体
 type Server struct {
-	serviceMap sync.Map
+	ServiceMap sync.Map
 }
 
 // 创建一个新的RPC服务器实例
