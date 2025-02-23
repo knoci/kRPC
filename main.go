@@ -2,7 +2,8 @@ package main
 
 import (
 	"context"
-	krpc "kRPC/server"
+	"kRPC/client"
+	"kRPC/server"
 	"log"
 	"net"
 	"net/http"
@@ -22,13 +23,13 @@ func (f Foo) Sum(args Args, reply *int) error {
 func startServer(addrCh chan string) {
 	var foo Foo
 	l, _ := net.Listen("tcp", ":9999")
-	_ = krpc.Register(&foo)
-	krpc.HandleHTTP()
+	_ = server.Register(&foo)
+	server.HandleHTTP()
 	addrCh <- l.Addr().String()
 	_ = http.Serve(l, nil)
 }
 func call(addrCh chan string) {
-	client, _ := DialHTTP("tcp", <-addrCh)
+	client, _ := client.DialHTTP("tcp", <-addrCh)
 	defer func() { _ = client.Close() }()
 
 	time.Sleep(time.Second)
