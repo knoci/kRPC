@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	connected        = "200 Connected to Gee RPC" // HTTP 连接成功的响应消息
-	defaultRPCPath   = "/_kprc_"                  // 默认的 RPC 请求路径
-	defaultDebugPath = "/debug/krpc"              // 默认的调试路径
+	connected        = "200 Connected to kRPC" // HTTP 连接成功的响应消息
+	defaultRPCPath   = "/_kprc_"               // 默认的 RPC 请求路径
+	defaultDebugPath = "/debug/krpc"           // 默认的调试路径
 	MagicNumber      = 0x3bef5c
 )
 
@@ -38,7 +38,7 @@ var DefaultOption = &Option{
 
 // request stores all information of a call
 type request struct {
-	h            *codec.Header // header of request
+	h            *codec.Header // 请求头
 	argv, replyv reflect.Value // argv and replyv of request
 	mtype        *service.MethodType
 	svc          *service.Service
@@ -69,8 +69,7 @@ func (server *Server) Accept(lis net.Listener) {
 	}
 }
 
-// Accept accepts connections on the listener and serves requests
-// for each incoming connection.
+// Accept accepts connections on the listener and serves requests for each incoming connection.
 func Accept(lis net.Listener) { DefaultServer.Accept(lis) }
 
 // ServeConn 处理单个客户端连接。
@@ -98,20 +97,20 @@ var invalidRequest = struct{}{}
 
 // serveCodec 处理来自客户端的RPC请求
 func (server *Server) serveCodec(cc codec.Codec) {
-	sending := new(sync.Mutex) // make sure to send a complete response
-	wg := new(sync.WaitGroup)  // wait until all request are handled
+	sending := new(sync.Mutex) // 确保发送完整的响应
+	wg := new(sync.WaitGroup)  // 等待所有请求处理完毕
 	for {
-		req, err := server.readRequest(cc)
+		req, err := server.readRequest(cc) // 读取请求
 		if err != nil {
 			if req == nil {
-				break // it's not possible to recover, so close the connection
+				break // 无法恢复，请关闭连接
 			}
 			req.h.Error = err.Error()
-			server.sendResponse(cc, req.h, invalidRequest, sending)
+			server.sendResponse(cc, req.h, invalidRequest, sending) //
 			continue
 		}
 		wg.Add(1)
-		go server.handleRequest(cc, req, sending, wg, DefaultOption.ConnectTimeout)
+		go server.handleRequest(cc, req, sending, wg, DefaultOption.ConnectTimeout) // 回复请求
 	}
 	wg.Wait()
 	_ = cc.Close()
@@ -130,23 +129,27 @@ func (server *Server) readRequestHeader(cc codec.Codec) (*codec.Header, error) {
 }
 
 func (server *Server) readRequest(cc codec.Codec) (*request, error) {
+	// 读取请求头信息
 	h, err := server.readRequestHeader(cc)
 	if err != nil {
 		return nil, err
 	}
+	// 初始化请求对象
 	req := &request{h: h}
+	// 根据请求头中的 ServiceMethod 查找对应的服务和方法
 	req.svc, req.mtype, err = server.findService(h.ServiceMethod)
 	if err != nil {
 		return req, err
 	}
+	// 创建请求参数和返回值的反射值
 	req.argv = req.mtype.NewArgv()
 	req.replyv = req.mtype.NewReplyv()
-
-	// make sure that argvi is a pointer, ReadBody need a pointer as parameter
+	// 确保 argv 是一个指针类型，因为 codec.ReadBody 需要一个指针作为参数
 	argvi := req.argv.Interface()
 	if req.argv.Type().Kind() != reflect.Ptr {
-		argvi = req.argv.Addr().Interface()
+		argvi = req.argv.Addr().Interface() // 如果不是指针类型，取地址
 	}
+	// 读取请求正文并填充到 argv 中
 	if err = cc.ReadBody(argvi); err != nil {
 		log.Println("rpc server: read body err:", err)
 		return req, err
@@ -200,7 +203,7 @@ func (server *Server) Register(rcvr interface{}) error {
 	s := service.NewService(rcvr) // 创建一个服务实例
 	// 使用 sync.Map 的 LoadOrStore 方法将服务注册到服务映射中
 	// 如果服务已存在，LoadOrStore 返回已存在的服务实例，并将 dup 设置为 true
-	if _, dup := server.serviceMap.LoadOrStore(s.Name, s); dup {
+	if _, dup := server.ServiceMap.LoadOrStore(s.Name, s); dup {
 		return errors.New("rpc: service already defined: " + s.Name) // 如果服务已注册，返回错误
 	}
 	return nil // 注册成功返回 nil
@@ -219,7 +222,7 @@ func (server *Server) findService(serviceMethod string) (svc *service.Service, m
 		return
 	}
 	serviceName, methodName := serviceMethod[:dot], serviceMethod[dot+1:]
-	svci, ok := server.serviceMap.Load(serviceName)
+	svci, ok := server.ServiceMap.Load(serviceName)
 	if !ok {
 		err = errors.New("rpc server: can't find service " + serviceName)
 		return

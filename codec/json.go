@@ -24,13 +24,14 @@ func NewJsonCodec(conn io.ReadWriteCloser) Codec {
 	return &JsonCodec{
 		conn: conn,
 		buf:  buf,
-		dec:  json.NewDecoder(conn),
-		enc:  json.NewEncoder(buf),
+		dec:  json.NewDecoder(conn), // 连接conn的 gob 解码器
+		enc:  json.NewEncoder(buf),  // 缓冲buf的 gob 编码器
 	}
 }
 
 // ReadHeader 从连接中读取头部信息
 func (c *JsonCodec) ReadHeader(h *Header) error {
+
 	return c.dec.Decode(h)
 }
 

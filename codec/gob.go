@@ -30,32 +30,36 @@ func NewGobCodec(conn io.ReadWriteCloser) Codec {
 	}
 }
 
+// ReadHeader 从连接中读取 RPC 消息头。
 func (c *GobCodec) ReadHeader(h *Header) error {
-	return c.dec.Decode(h)
+	return c.dec.Decode(h) // 使用 gob 解码器解码消息头
 }
 
+// ReadBody 从连接中读取 RPC 消息体。
 func (c *GobCodec) ReadBody(body interface{}) error {
-	return c.dec.Decode(body)
+	return c.dec.Decode(body) // 使用 gob 解码器解码消息体
 }
 
+// Write 将 RPC 消息头和消息体写入连接。
 func (c *GobCodec) Write(h *Header, body interface{}) (err error) {
 	defer func() {
-		_ = c.buf.Flush()
+		_ = c.buf.Flush() // 确保缓冲区数据被写入
 		if err != nil {
-			_ = c.Close()
+			_ = c.Close() // 如果发生错误，关闭连接
 		}
 	}()
-	if err := c.enc.Encode(h); err != nil {
+	if err := c.enc.Encode(h); err != nil { // 编码消息头
 		log.Println("rpc codec: gob error encoding header:", err)
 		return err
 	}
-	if err := c.enc.Encode(body); err != nil {
+	if err := c.enc.Encode(body); err != nil { // 编码消息体
 		log.Println("rpc codec: gob error encoding body:", err)
 		return err
 	}
 	return nil
 }
 
+// Close 关闭底层的连接。
 func (c *GobCodec) Close() error {
 	return c.conn.Close()
 }

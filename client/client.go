@@ -34,6 +34,7 @@ type Call struct {
 	Done          chan *Call  // 调用完成通知通道
 }
 
+// 把当前Call放入Done管道
 func (call *Call) done() {
 	call.Done <- call
 }
@@ -43,11 +44,11 @@ func (call *Call) done() {
 type Client struct {
 	cc       codec.Codec      // 编解码器
 	opt      *server.Option   // 协议选项
-	sending  sync.Mutex       // 发送锁，保证请求原子性（保护header）
+	sending  sync.Mutex       // 发送锁，保证请求原子性
 	header   codec.Header     // 请求头（复用减少内存分配）
 	mu       sync.Mutex       // 全局锁（保护以下字段）
 	seq      uint64           // 请求序号生成器（原子递增）
-	pending  map[uint64]*Call // 未完成调用映射表
+	pending  map[uint64]*Call // 未完成调用映射表，键是编号，值是 Call 实例。
 	closing  bool             // 用户主动关闭标记
 	shutdown bool             // 服务端要求关闭标记
 }
@@ -63,7 +64,7 @@ type newClientFunc func(conn net.Conn, opt *server.Option) (client *Client, err 
 
 var ErrShutdown = errors.New("connection is shut down")
 
-// Close 实现io.Closer接口
+// Close 关闭连接
 func (client *Client) Close() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -146,7 +147,7 @@ func (client *Client) receive() {
 
 // 创建客户端（连接协商阶段）
 func NewClient(conn net.Conn, opt *server.Option) (*Client, error) {
-	f := codec.NewCodecFuncMap[opt.CodecType]
+	f := codec.NewCodecFuncMap[opt.CodecType] // 对应类型的CodecFunc接收conn返回特定类型Codec实例
 	if f == nil {
 		err := fmt.Errorf("invalid codec type %s", opt.CodecType)
 		log.Println("rpc client: codec error:", err)
@@ -203,7 +204,7 @@ func (client *Client) send(call *Call) {
 		return
 	}
 
-	// 复用header减少内存分配
+	// 准备回复的头部
 	client.header.ServiceMethod = call.ServiceMethod
 	client.header.Seq = seq
 	client.header.Error = ""
