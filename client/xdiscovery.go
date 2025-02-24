@@ -52,7 +52,7 @@ func (d *RegistryDiscovery) Refresh() error {
 		return err
 	}
 	// 从响应头中解析服务器列表
-	servers := strings.Split(resp.Header.Get("X-Geerpc-Servers"), ",")
+	servers := strings.Split(resp.Header.Get("X-krpc-Servers"), ",")
 	d.servers = make([]string, 0, len(servers)) // 重新初始化服务器列表
 	for _, server := range servers {
 		if strings.TrimSpace(server) != "" { // 去除空字符串

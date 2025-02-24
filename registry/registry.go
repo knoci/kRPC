@@ -25,8 +25,8 @@ type ServerItem struct {
 }
 
 const (
-	defaultPath    = "/_geerpc_/registry" // 默认的注册路径
-	defaultTimeout = time.Minute * 5      // 默认的心跳超时时间（5分钟）
+	defaultPath    = "/_krpc_/registry" // 默认的注册路径
+	defaultTimeout = time.Minute * 5    // 默认的心跳超时时间（5分钟）
 )
 
 // New 创建一个带有超时设置的注册中心实例。
@@ -122,7 +122,7 @@ func sendHeartbeat(registry, addr string) error {
 	log.Println(addr, "send heart beat to registry", registry)
 	httpClient := &http.Client{}                     // 创建 HTTP 客户端
 	req, _ := http.NewRequest("POST", registry, nil) // 创建 POST 请求
-	req.Header.Set("X-Geerpc-Server", addr)          // 设置服务器地址
+	req.Header.Set("X-krpc-Server", addr)            // 设置服务器地址
 	if _, err := httpClient.Do(req); err != nil {    // 发送请求
 		log.Println("rpc server: heart beat err:", err)
 		return err

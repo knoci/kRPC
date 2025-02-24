@@ -93,8 +93,8 @@ func broadcast(registry string) {
 
 // main 是程序的入口。
 func main() {
-	log.SetFlags(0)                                           // 设置日志格式
-	registryAddr := "http://localhost:9999/_geerpc_/registry" // 注册中心地址
+	log.SetFlags(0)                                         // 设置日志格式
+	registryAddr := "http://localhost:9999/_krpc_/registry" // 注册中心地址
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go startRegistry(&wg) // 启动注册中心

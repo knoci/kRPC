@@ -18,7 +18,7 @@ const (
 // debugText 是一个 HTML 模板，用于展示 RPC 服务的调试信息。
 const debugText = `<html>
 	<body>
-	<title>GeeRPC Services</title>
+	<title>kRPC Services</title>
 	{{range .}}
 	<hr>
 	Service {{.Name}}
