@@ -90,6 +90,7 @@ func (xc *XClient) Broadcast(ctx context.Context, serviceMethod string, args, re
 	var e error
 	replyDone := reply == nil // 如果 reply 为 nil，则不需要设置值
 	ctx, cancel := context.WithCancel(ctx)
+	defer cancel() // 确保在函数返回时调用 cancel
 	for _, rpcAddr := range servers {
 		wg.Add(1)
 		go func(rpcAddr string) {

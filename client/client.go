@@ -24,6 +24,13 @@ const (
 	MagicNumber      = 0x3bef5c
 )
 
+type Option struct {
+	MagicNumber    int // MagicNumber 用于标识这是一个RPC请求
+	CodecType      codec.Type
+	ConnectTimeout time.Duration // 0 means no limit
+	HandleTimeout  time.Duration
+}
+
 // Call 代表一个活跃的RPC调用
 type Call struct {
 	Seq           uint64      // 调用唯一序号
@@ -322,7 +329,7 @@ func DialHTTP(network, address string, opts ...*server.Option) (*Client, error) 
 }
 
 // XDial 根据 rpcAddr 的协议部分调用不同的函数来连接到 RPC 服务器。
-// rpcAddr 是一个通用格式（protocol@addr），用于表示 RPC 服务器的地址。
+// rpcAddr 是一个通用格式（protocol@addr），用于表示 RPC 服务器的方式。
 // 示例：
 //
 //	http@10.0.0.1:7001
@@ -336,9 +343,15 @@ func XDial(rpcAddr string, opts ...*server.Option) (*Client, error) {
 	protocol, addr := parts[0], parts[1] // 分离协议和地址
 	switch protocol {
 	case "http":
+
 		return DialHTTP("tcp", addr, opts...) // 对于 HTTP 协议，调用 DialHTTP
+	case "tcp":
+		return Dial("tcp", addr, opts...) // 对于 TCP 协议，调用 Dial
+	case "udp":
+		return Dial("udp", addr, opts...) // 对于 UDP 协议，调用 Dial
 	default:
 		// 其他协议（如 tcp、unix 等）
+
 		return Dial(protocol, addr, opts...) // 调用 Dial
 	}
 }

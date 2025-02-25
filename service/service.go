@@ -10,8 +10,8 @@ import (
 // MethodType 用于描述一个方法的元信息，包括方法本身、参数类型、返回类型以及调用次数。
 type MethodType struct {
 	method    reflect.Method // 方法的反射信息
-	ArgType   reflect.Type   // 方法的参数类型
-	ReplyType reflect.Type   // 方法的返回类型
+	ArgType   reflect.Type   // 参数的类型
+	ReplyType reflect.Type   // 返回的类型
 	numCalls  uint64         // 方法被调用的次数
 }
 
@@ -33,7 +33,7 @@ func (m *MethodType) NewReplyv() reflect.Value {
 	replyv := reflect.New(m.ReplyType.Elem())
 	switch m.ReplyType.Elem().Kind() {
 	case reflect.Map:
-		replyv.Elem().Set(reflect.MakeMap(m.ReplyType.Elem())) // 初始化空 map
+		replyv.Elem().Set(reflect.MakeMap(m.ReplyType.Elem())) // MakeMap创建具有指定类型的新映射
 	case reflect.Slice:
 		replyv.Elem().Set(reflect.MakeSlice(m.ReplyType.Elem(), 0, 0)) // 初始化空 slice
 	}
@@ -43,8 +43,8 @@ func (m *MethodType) NewReplyv() reflect.Value {
 // Service 表示一个 RPC 服务，包含服务名称、类型、接收者以及方法映射。
 type Service struct {
 	Name   string                 // 服务名称
-	typ    reflect.Type           // 服务类型
-	Rcvr   reflect.Value          // 服务的接收者（对象实例）
+	typ    reflect.Type           // 结构体的类型
+	Rcvr   reflect.Value          // 结构体的实例本身，保留 rcvr 是因为在调用时需要 rcvr 作为第 0 个参数
 	Method map[string]*MethodType // 方法映射，键为方法名
 }
 
@@ -92,8 +92,8 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 
 // call 调用一个注册的方法，并返回错误（如果有）。
 func (s *Service) Call(m *MethodType, argv, replyv reflect.Value) error {
-	atomic.AddUint64(&m.numCalls, 1) // 增加方法调用次数
-	returnValues := m.method.Func.Call([]reflect.Value{s.Rcvr, argv, replyv})
+	atomic.AddUint64(&m.numCalls, 1)                                          // 增加方法调用次数
+	returnValues := m.method.Func.Call([]reflect.Value{s.Rcvr, argv, replyv}) // 方法调用的第一个参数是接收者
 	if errInter := returnValues[0].Interface(); errInter != nil {
 		return errInter.(error) // 如果返回值是非 nil 的 error，返回错误
 	}
