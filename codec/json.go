@@ -24,8 +24,8 @@ func NewJsonCodec(conn io.ReadWriteCloser) Codec {
 	return &JsonCodec{
 		conn: conn,
 		buf:  buf,
-		dec:  json.NewDecoder(conn), // 连接conn的 gob 解码器
-		enc:  json.NewEncoder(buf),  // 缓冲buf的 gob 编码器
+		dec:  json.NewDecoder(conn), // 连接conn的 json 解码器
+		enc:  json.NewEncoder(buf),  // 缓冲buf的 json 编码器
 	}
 }
 

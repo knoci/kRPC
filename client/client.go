@@ -102,7 +102,7 @@ func (client *Client) registerCall(call *Call) (uint64, error) {
 	return call.Seq, nil
 }
 
-// 从待处理队列移除调用（性能优化点：快速删除）
+// 从待处理队列移除调用
 func (client *Client) removeCall(seq uint64) *Call {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -118,7 +118,7 @@ func (client *Client) terminateCalls(err error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	client.shutdown = true
-	for _, call := range client.pending { // 线性遍历优化点：大表可分批处理
+	for _, call := range client.pending {
 		call.Error = err
 		call.done()
 	}
@@ -333,8 +333,7 @@ func DialHTTP(network, address string, opts ...*server.Option) (*Client, error) 
 // 示例：
 //
 //	http@10.0.0.1:7001
-//	tcp@10.0.0.1:9999
-//	unix@/tmp/geerpc.sock
+//	udp@10.0.0.1:9999
 func XDial(rpcAddr string, opts ...*server.Option) (*Client, error) {
 	parts := strings.Split(rpcAddr, "@")
 	if len(parts) != 2 {
@@ -343,15 +342,12 @@ func XDial(rpcAddr string, opts ...*server.Option) (*Client, error) {
 	protocol, addr := parts[0], parts[1] // 分离协议和地址
 	switch protocol {
 	case "http":
-
 		return DialHTTP("tcp", addr, opts...) // 对于 HTTP 协议，调用 DialHTTP
 	case "tcp":
 		return Dial("tcp", addr, opts...) // 对于 TCP 协议，调用 Dial
 	case "udp":
 		return Dial("udp", addr, opts...) // 对于 UDP 协议，调用 Dial
 	default:
-		// 其他协议（如 tcp、unix 等）
-
 		return Dial(protocol, addr, opts...) // 调用 Dial
 	}
 }
